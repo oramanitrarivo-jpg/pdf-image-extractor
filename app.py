@@ -7,7 +7,6 @@ import anthropic
 import fitz
 from flask import Flask, jsonify, request
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CONFIDENCE_ACCEPT = 0.75
 CONFIDENCE_REVIEW = 0.50
 MIN_IMAGE_BYTES = 5000
@@ -81,6 +80,11 @@ def classify(client, img):
 @app.route("/extract-images", methods=["POST"])
 def extract_images_route():
     try:
+        # Lecture de la clé à chaque requête
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return jsonify({"error": "Clé API Anthropic manquante."}), 500
+
         if "file" in request.files:
             pdf_bytes = request.files["file"].read()
         elif request.content_type and "pdf" in request.content_type:
@@ -96,10 +100,7 @@ def extract_images_route():
         except Exception as e:
             return jsonify({"error": f"Extraction échouée : {str(e)}"}), 500
 
-        if not ANTHROPIC_API_KEY:
-            return jsonify({"error": "Clé API Anthropic manquante."}), 500
-
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=api_key)
         accepted, review, rejected = [], [], []
 
         for idx, img in enumerate(raw_images):
@@ -144,3 +145,8 @@ def extract_images_route():
     except Exception as e:
         logging.exception("Erreur inattendue")
         return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
