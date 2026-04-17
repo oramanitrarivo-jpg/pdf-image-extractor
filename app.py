@@ -80,45 +80,67 @@ def classify(client, img):
 
 @app.route("/extract-images", methods=["POST"])
 def extract_images_route():
-    if "file" in request.files:
-        pdf_bytes = request.files["file"].read()
-    elif request.content_type and "pdf" in request.content_type:
-        pdf_bytes = request.data
-    else:
-        return jsonify({"error": "Envoie le PDF en multipart (champ file) ou en body PDF."}), 400
-
-    if not pdf_bytes:
-        return jsonify({"error": "Fichier PDF vide."}), 400
-
     try:
-        raw_images = extract_images(pdf_bytes)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        if "file" in request.files:
+            pdf_bytes = request.files["file"].read()
+        elif request.content_type and "pdf" in request.content_type:
+            pdf_bytes = request.data
+        else:
+            return jsonify({"error": "Envoie le PDF en multipart (champ file) ou en body PDF."}), 400
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    accepted, review, rejected = [], [], []
+        if not pdf_bytes:
+            return jsonify({"error": "Fichier PDF vide."}), 400
 
-    for idx, img in enumerate(raw_images):
         try:
-            clf = classify(client, img)
+            raw_images = extract_images(pdf_bytes)
         except Exception as e:
-            rejected.append({"index": idx, "reason": str(e)})
-            continue
+            return jsonify({"error": f"Extraction échouée : {str(e)}"}), 500
 
-        is_product = bool(clf.get("is_product_image", False))
-        confidence = float(clf.get("confidence", 0.0))
-        status = "accepted" if is_product and confidence >= CONFIDENCE_ACCEPT else \
-                 "review" if is_product and confidence >= CONFIDENCE_REVIEW else "rejected"
+        if not ANTHROPIC_API_KEY:
+            return jsonify({"error": "Clé API Anthropic manquante."}), 500
 
-        ext_map = {"png": "image/png", "jpeg": "image/jpeg", "jpg": "image/jpeg", "webp": "image/webp"}
-        record = {
-            "index": idx,
-            "confidence": confidence,
-            "category": clf.get("category", "other"),
-            "reason": clf.get("reason", ""),
-            "width": img["width"],
-            "height": img["height"],
-        }
-        if status in ("accepted", "review"):
-            record["data_b64"] = base64.standard_b64encode(img["image"]).decode()
-            record["media_type"] = ext_
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        accepted, review, rejected = [], [], []
+
+        for idx, img in enumerate(raw_images):
+            try:
+                clf = classify(client, img)
+            except Exception as e:
+                rejected.append({"index": idx, "reason": str(e)})
+                continue
+
+            is_product = bool(clf.get("is_product_image", False))
+            confidence = float(clf.get("confidence", 0.0))
+            status = "accepted" if is_product and confidence >= CONFIDENCE_ACCEPT else \
+                     "review" if is_product and confidence >= CONFIDENCE_REVIEW else "rejected"
+
+            ext_map = {"png": "image/png", "jpeg": "image/jpeg", "jpg": "image/jpeg", "webp": "image/webp"}
+            record = {
+                "index": idx,
+                "confidence": confidence,
+                "category": clf.get("category", "other"),
+                "reason": clf.get("reason", ""),
+                "width": img["width"],
+                "height": img["height"],
+            }
+            if status in ("accepted", "review"):
+                record["data_b64"] = base64.standard_b64encode(img["image"]).decode()
+                record["media_type"] = ext_map.get(img["ext"].lower(), "image/png")
+
+            if status == "accepted":
+                accepted.append(record)
+            elif status == "review":
+                review.append(record)
+            else:
+                rejected.append(record)
+
+        return jsonify({
+            "total_extracted": len(raw_images),
+            "accepted": accepted,
+            "review": review,
+            "rejected": rejected,
+        }), 200
+
+    except Exception as e:
+        logging.exception("Erreur inattendue")
+        return jsonify({"error": str(e)}), 500
