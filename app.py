@@ -7,7 +7,7 @@ import anthropic
 import fitz
 from flask import Flask, jsonify, request
 
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CONFIDENCE_ACCEPT = 0.75
 CONFIDENCE_REVIEW = 0.50
 MIN_IMAGE_BYTES = 5000
