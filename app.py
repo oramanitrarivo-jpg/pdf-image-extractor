@@ -5,6 +5,7 @@ Webhook Flask — Extraction de produits depuis un PDF
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 import anthropic
@@ -17,6 +18,10 @@ from services.product_detector import detect_products
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+# Nombre max de classifications en parallèle
+# Limité à 5 pour respecter le rate limit Anthropic (~50 req/min)
+MAX_WORKERS = 5
 
 
 # ─── Utilitaires ───────────────────────────────────────────────────────────────
@@ -67,6 +72,53 @@ def generate_filenames(product_name: str, count: int, media_type: str) -> list[s
     return [f"{slug}_{i + 1}.{ext}" for i in range(count)]
 
 
+def classify_all_parallel(client: anthropic.Anthropic, raw_images: list[dict]) -> list:
+    """
+    Classifie toutes les images en parallèle via ThreadPoolExecutor.
+    Retourne la liste des images acceptées dans l'ordre original.
+    """
+    accepted_images = []
+    rejected        = []
+
+    # On associe chaque future à son index pour garder l'ordre
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_idx = {
+            executor.submit(classify, client, img): idx
+            for idx, img in enumerate(raw_images)
+        }
+
+        results = {}
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                img = future.result()
+                results[idx] = img
+            except Exception as exc:
+                logging.warning("Classification image %d échouée : %s", idx, exc)
+                results[idx] = None
+
+    # Reconstruit dans l'ordre original
+    for idx in sorted(results.keys()):
+        img = results[idx]
+        if img is None:
+            rejected.append({"category": "error", "reason": "classification échouée"})
+        elif img.accepted:
+            accepted_images.append(img)
+        else:
+            rejected.append({
+                "confidence": img.confidence,
+                "category":   img.category,
+                "reason":     img.reason,
+            })
+
+    logging.info(
+        "%d image(s) acceptée(s) sur %d",
+        len(accepted_images), len(raw_images)
+    )
+
+    return accepted_images, rejected
+
+
 # ─── Endpoint extract-images ───────────────────────────────────────────────────
 
 @app.route("/extract-images", methods=["POST"])
@@ -82,36 +134,13 @@ def extract_images_route():
 
         pdf_name_clean = pdf_name.replace(".pdf", "").replace(".PDF", "")
         client         = anthropic.Anthropic(api_key=api_key)
-
-        # Paramètre optionnel de limitation des pages (mode test)
-        max_pages = request.args.get("max_pages", type=int)
+        max_pages      = request.args.get("max_pages", type=int)
 
         # 1. Extraction des images embarquées
         raw_images = extract_images(pdf_bytes, max_pages)
 
-        # 2. Classification — système éprouvé inchangé
-        accepted_images = []
-        rejected        = []
-
-        for raw_img in raw_images:
-            try:
-                img = classify(client, raw_img)
-                if img.accepted:
-                    accepted_images.append(img)
-                else:
-                    rejected.append({
-                        "confidence": img.confidence,
-                        "category":   img.category,
-                        "reason":     img.reason,
-                    })
-            except Exception as exc:
-                logging.warning("Classification échouée : %s", exc)
-                rejected.append({"category": "error", "reason": str(exc)})
-
-        logging.info(
-            "%d image(s) acceptée(s) sur %d",
-            len(accepted_images), len(raw_images)
-        )
+        # 2. Classification parallèle — toutes les images en même temps
+        accepted_images, rejected = classify_all_parallel(client, raw_images)
 
         # 3. Rendu des pages pour détecter les produits
         all_pages = render_pages_as_images(pdf_bytes, max_pages)
@@ -215,26 +244,11 @@ def extract_products_route():
         pdf_name_clean = pdf_name.replace(".pdf", "").replace(".PDF", "")
         today          = date.today().isoformat()
         client         = anthropic.Anthropic(api_key=api_key)
+        max_pages      = request.args.get("max_pages", type=int)
 
-        # Paramètre optionnel de limitation des pages (mode test)
-        max_pages = request.args.get("max_pages", type=int)
-
-        # 1. Extraction et classification des images
-        raw_images      = extract_images(pdf_bytes, max_pages)
-        accepted_images = []
-
-        for raw_img in raw_images:
-            try:
-                img = classify(client, raw_img)
-                if img.accepted:
-                    accepted_images.append(img)
-            except Exception as exc:
-                logging.warning("Classification échouée : %s", exc)
-
-        logging.info(
-            "%d image(s) acceptée(s) sur %d",
-            len(accepted_images), len(raw_images)
-        )
+        # 1. Extraction et classification parallèle des images
+        raw_images                = extract_images(pdf_bytes, max_pages)
+        accepted_images, rejected = classify_all_parallel(client, raw_images)
 
         # 2. Rendu des pages
         all_pages = render_pages_as_images(pdf_bytes, max_pages)
