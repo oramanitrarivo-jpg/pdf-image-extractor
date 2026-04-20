@@ -125,4 +125,49 @@ def extract_products_route():
 
         # 4. Détection des produits — Passe 1
         try:
-            detected = detect_products(c
+            detected = detect_products(client, all_pages)
+        except Exception as exc:
+            return jsonify({"error": f"Détection des produits échouée : {exc}"}), 500
+
+        if not detected:
+            return jsonify({"total_produits": 0, "produits": []}), 200
+
+        # 5. Association images ↔ produits — Passe 2
+        produits_out = []
+        for produit_info in detected:
+            nom       = produit_info.get("nom", "")
+            page_nums = produit_info.get("pages", [])
+
+            if not nom:
+                continue
+
+            pages_produit = get_pages_for_product(all_pages, page_nums)
+
+            try:
+                product = associate_images(
+                    client=client,
+                    nom_produit=nom,
+                    pages=pages_produit,
+                    accepted_images=accepted_images,
+                    source_pdf=pdf_name_clean,
+                    date_ajout=today,
+                )
+                produits_out.append(product.to_dict())
+            except Exception as exc:
+                logging.warning("Association '%s' échouée : %s", nom, exc)
+
+        return jsonify({
+            "total_produits": len(produits_out),
+            "produits":       produits_out,
+        }), 200
+
+    except Exception as exc:
+        logging.exception("Erreur inattendue")
+        return jsonify({"error": str(exc)}), 500
+
+
+# ─── Lancement ─────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
