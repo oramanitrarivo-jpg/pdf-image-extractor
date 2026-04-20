@@ -36,7 +36,7 @@ def detect_products(client: anthropic.Anthropic, pages: list[dict]) -> list[dict
         max_tokens=1024,
         system=PROMPT_DETECT,
         messages=[{"role": "user", "content": content}],
-        timeout=60.0,
+        timeout=240.0,
     )
 
     raw      = clean_json_response(response.content[0].text)
