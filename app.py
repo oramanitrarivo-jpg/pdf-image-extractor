@@ -83,8 +83,11 @@ def extract_images_route():
         pdf_name_clean = pdf_name.replace(".pdf", "").replace(".PDF", "")
         client         = anthropic.Anthropic(api_key=api_key)
 
+        # Paramètre optionnel de limitation des pages (mode test)
+        max_pages = request.args.get("max_pages", type=int)
+
         # 1. Extraction des images embarquées
-        raw_images = extract_images(pdf_bytes)
+        raw_images = extract_images(pdf_bytes, max_pages)
 
         # 2. Classification — système éprouvé inchangé
         accepted_images = []
@@ -111,7 +114,7 @@ def extract_images_route():
         )
 
         # 3. Rendu des pages pour détecter les produits
-        all_pages = render_pages_as_images(pdf_bytes)
+        all_pages = render_pages_as_images(pdf_bytes, max_pages)
 
         # 4. Détection des produits
         try:
@@ -213,9 +216,11 @@ def extract_products_route():
         today          = date.today().isoformat()
         client         = anthropic.Anthropic(api_key=api_key)
 
+        # Paramètre optionnel de limitation des pages (mode test)
+        max_pages = request.args.get("max_pages", type=int)
+
         # 1. Extraction et classification des images
-        max_pages  = request.args.get("max_pages", type=int)
-        raw_images = extract_images(pdf_bytes, max_pages)
+        raw_images      = extract_images(pdf_bytes, max_pages)
         accepted_images = []
 
         for raw_img in raw_images:
