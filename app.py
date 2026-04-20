@@ -214,7 +214,8 @@ def extract_products_route():
         client         = anthropic.Anthropic(api_key=api_key)
 
         # 1. Extraction et classification des images
-        raw_images      = extract_images(pdf_bytes)
+        max_pages  = request.args.get("max_pages", type=int)
+        raw_images = extract_images(pdf_bytes, max_pages)
         accepted_images = []
 
         for raw_img in raw_images:
@@ -231,7 +232,7 @@ def extract_products_route():
         )
 
         # 2. Rendu des pages
-        all_pages = render_pages_as_images(pdf_bytes)
+        all_pages = render_pages_as_images(pdf_bytes, max_pages)
 
         # 3. Détection des produits
         try:
