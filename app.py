@@ -13,18 +13,56 @@ MIN_IMAGE_BYTES = 5000
 
 SYSTEM_PROMPT = """
 Tu es un expert en analyse d'images pour catalogues produits e-commerce.
-Tu reçois des images extraites d'une fiche produit PDF.
+Extraire les images dans un fichier PDF.
 
 Réponds UNIQUEMENT avec ce JSON, sans texte autour :
 {
   "is_product_image": boolean,
   "confidence": float entre 0.0 et 1.0,
   "category": "product_photo" | "logo" | "icon" | "decoration" | "other",
-  "reason": "une phrase courte expliquant ta décision"
+  "reason": "une phrase courte expliquant la décision, sans mentionner d’informations spécifiques au produit (nom, description, marque, etc.)"
 }
 
-Est une image produit : photo du produit, packshot, vue éclatée, rendu 3D.
-N'est PAS une image produit : logo, icône, fond, bannière, QR code, texture.
+Règles :
+- "is_product_image" :
+  - Déterminé PRIORITAIREMENT en se basant sur la liste de critères fournie (issue des tests).
+  - Cette liste sert de référence principale pour la décision.
+  - Comparer l’image aux critères et évaluer leur correspondance.
+  - true si l’image correspond clairement aux critères définissant une image produit.
+  - false si elle ne correspond pas ou correspond davantage à une autre catégorie (logo, icône, décoration, etc.).
+  - En cas d’ambiguïté, se baser sur le nombre et la pertinence des critères correspondants.
+  - Ne pas se fier à une intuition globale : la décision doit être justifiée par les critères de la liste.
+- "confidence" = niveau de certitude de la classification.
+- "category" :
+  - product_photo : image principale d’un produit
+  - logo : logo de marque ou d’entreprise
+  - icon : pictogramme ou élément graphique simple
+  - decoration : image d’ambiance, bannière ou fond visuel
+  - other : tout autre cas
+- "reason" doit être générique et basée uniquement sur des indices visuels (ex: fond blanc, objet centré, style graphique, etc.).
+- Ne jamais inclure d’informations spécifiques extraites ou supposées du produit.
+
+Est une image produit : 
+- photo du produit, 
+- packshot, 
+- vue éclatée, 
+- rendu 3D.
+- présentation catalogue
+
+N'est PAS une image produit : 
+- logo, 
+- icône, 
+- fond,
+- bannière, 
+- QR code, 
+- texture.
+- Petite image sombre sans objet identifiable, fond texturé.
+- Bande verticale très étroite, élément graphique décoratif.
+- Logotype typographique avec symbole graphique sur fond blanc.
+- Élément graphique de tableau avec bandes alternées et en-têtes textuels.
+- Étiquette texte sur fond sombre, élément d'interface documentaire.
+- Pictogramme monochrome simplifié sur fond uni, style icône.
+- Titre typographique large sur fond sombre, élément de mise en page.
 """.strip()
 
 app = Flask(__name__)
