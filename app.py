@@ -8,8 +8,8 @@ import fitz
 from flask import Flask, jsonify, request
 
 CONFIDENCE_ACCEPT = 0.80
-MIN_IMAGE_BYTES = 5000
-MIN_IMAGE_DIMENSION = 100
+MIN_IMAGE_BYTES = 1500
+MIN_IMAGE_DIMENSION = 75
 
 SYSTEM_PROMPT = """
 Tu es un expert en analyse d'images pour catalogues produits e-commerce.
