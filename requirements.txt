@@ -2,3 +2,4 @@ flask
 pymupdf
 anthropic
 gunicorn
+Pillow
