@@ -66,17 +66,16 @@ def extract_images(pdf_bytes):
                 base_image = doc.extract_image(xref)
                 size = len(base_image["image"])
                 w, h = base_image["width"], base_image["height"]
+                # LOG TEMPORAIRE
+                logging.info("Image xref=%d : taille=%d octets, dimensions=%dx%d", xref, size, w, h)
                 if size < MIN_IMAGE_BYTES:
-                    logging.debug("Image xref=%d ignorée (taille=%d octets)", xref, size)
                     continue
                 if w < MIN_IMAGE_DIMENSION or h < MIN_IMAGE_DIMENSION:
-                    logging.debug("Image xref=%d ignorée (dimensions=%dx%d)", xref, w, h)
                     continue
                 images.append(base_image)
             except Exception as e:
                 logging.warning("Erreur extraction xref=%d : %s", xref, e)
     doc.close()
-    logging.info("%d image(s) extraite(s) du PDF", len(images))
     return images
 
 
