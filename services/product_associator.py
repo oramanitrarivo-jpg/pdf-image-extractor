@@ -70,7 +70,7 @@ def associate_images(
         max_tokens=1024,
         system=PROMPT_ASSOCIATE.format(nom_produit=nom_produit),
         messages=[{"role": "user", "content": content}],
-        timeout=60.0,
+        timeout=240.0,
     )
 
     raw     = clean_json_response(response.content[0].text)
