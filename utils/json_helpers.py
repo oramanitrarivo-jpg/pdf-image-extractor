@@ -1,20 +1,36 @@
+import json
 import re
+
 
 def clean_json_response(text: str) -> str:
     """
-    Nettoie la réponse de Claude pour extraire un JSON valide.
-    Gère les backticks markdown et les caractères parasites.
+    Extrait le premier JSON valide depuis une réponse Claude.
+    Gère les backticks, le texte parasite avant/après, et les JSON malformés.
     """
     text = text.strip()
 
     # Supprime les backticks markdown
-    if text.startswith("```"):
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
+    if "```" in text:
+        parts = text.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                text = part
+                break
 
-    # Extrait le JSON entre la première { et la dernière }
+    # Tente d'extraire le premier JSON valide avec JSONDecoder
+    decoder = json.JSONDecoder()
+    for i, char in enumerate(text):
+        if char == "{":
+            try:
+                obj, _ = decoder.raw_decode(text, i)
+                return json.dumps(obj)
+            except json.JSONDecodeError:
+                continue
+
+    # Fallback — regex basique
     match = re.search(r'\{.*\}', text, re.DOTALL)
     if match:
         return match.group(0).strip()
