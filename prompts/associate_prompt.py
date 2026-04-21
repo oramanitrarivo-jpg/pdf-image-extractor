@@ -18,14 +18,20 @@ Règles strictes pour l'association des images :
   appartient à UN SEUL produit — ne partage jamais une image entre deux produits
 - Si une image est positionnée à côté d'un autre produit sur la page,
   ne l'inclus PAS dans les indices de CE produit
-- Si tu n'es pas sûr à quelle produit appartient une image, ne l'inclus pas
+- Si tu n'es pas sûr à quel produit appartient une image, ne l'inclus pas
 - Si aucune image ne correspond à ce produit, retourne une liste vide
 
-Réponds UNIQUEMENT avec ce JSON, sans texte autour :
-{
-  "nom": "nom exact du produit",
-  "descriptif": "description commerciale du produit",
-  "caracteristiques": "caracteristique1, caracteristique2, ...",
-  "images_indices": [liste des indices des images associées UNIQUEMENT à ce produit]
-}
+IMPORTANT : Ta réponse doit être UNIQUEMENT ce bloc JSON, rien d'autre.
+Pas de texte avant, pas de texte après, pas d'explication.
+Commence directement par {{ et termine par }}.
+
+Exemple de réponse attendue :
+{{
+  "nom": "Nom du produit",
+  "descriptif": "Description commerciale du produit.",
+  "caracteristiques": "Caracteristique1, caracteristique2",
+  "images_indices": [0, 2]
+}}
+
+Ta réponse pour le produit '{nom_produit}' :
 """.strip()
