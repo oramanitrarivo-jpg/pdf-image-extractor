@@ -1,0 +1,25 @@
+pdf-image-extractor/
+│
+├── app.py                          → Point d'entrée Flask
+├── tasks.py                        → Traitement asynchrone
+├── config.py                       → Configuration globale
+├── requirements.txt                → Dépendances Python
+├── Procfile                        → Configuration gunicorn
+│
+├── prompts/
+│   ├── classify_prompt.py          → Prompt classification images
+│   ├── detect_prompt.py            → Prompt détection produits
+│   └── associate_prompt.py         → Prompt association images↔produits
+│
+├── services/
+│   ├── pdf_extractor.py            → Extraction images + rendu pages
+│   ├── image_classifier.py         → Classification via Claude Vision
+│   ├── product_detector.py         → Détection produits page par page
+│   └── product_associator.py       → Association images ↔ produits
+│
+├── models/
+│   ├── image.py                    → Dataclass Image
+│   └── product.py                  → Dataclass Product
+│
+└── utils/
+    └── json_helpers.py             → Nettoyage JSON Claude
