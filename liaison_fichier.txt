@@ -1,0 +1,27 @@
+app.py
+  │
+  ├── reçoit le PDF depuis Make
+  ├── crée un job_id
+  ├── lance tasks.py dans un thread
+  └── retourne { job_id, status }
+         │
+         ▼
+tasks.py
+  │
+  ├── appelle services/pdf_extractor.py
+  │       └── extract_images()          → images brutes haute résolution
+  │       └── render_pages_as_images()  → pages PNG pour Claude
+  │
+  ├── appelle services/image_classifier.py
+  │       └── classify()                → filtre images produit vs autre
+  │               └── lit prompts/classify_prompt.py
+  │               └── retourne models/image.py
+  │
+  ├── appelle services/product_detector.py
+  │       └── detect_products()         → liste produits + pages
+  │               └── lit prompts/detect_prompt.py
+  │
+  └── appelle services/product_associator.py
+          └── associate_images()        → relie images ↔ produits
+                  └── lit prompts/associate_prompt.py
+                  └── retourne models/product.py
